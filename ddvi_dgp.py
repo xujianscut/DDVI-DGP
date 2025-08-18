@@ -4,7 +4,7 @@
 """
 DDVI / DeepGP training script with command-line arguments (v2, safer init order).
 
-- Fixes AttributeError: 'CholeskyVariationalDistribution' object has no attribute 't1'
+- Fixes AttributeError: 'SDEVariationalDistribution' object has no attribute 't1'
 - Avoids assigning to reserved 'device' attribute on gpytorch variational modules
 """
 import argparse
@@ -107,7 +107,7 @@ class LSDE(nn.Module):
 
 
 
-class CholeskyVariationalDistribution(gpytorch.variational._variational_distribution._VariationalDistribution):
+class SDEVariationalDistribution(gpytorch.variational._variational_distribution._VariationalDistribution):
     def __init__(self, num_inducing_points, device, batch_shape=torch.Size([]), mean_init_std=1e-3, t1=0.1):
         super().__init__(num_inducing_points=num_inducing_points, batch_shape=batch_shape, mean_init_std=mean_init_std)
 
@@ -174,7 +174,7 @@ class ToyDeepGPHiddenLayer(DeepGPLayer):
             inducing_points = torch.randn(output_dims, num_inducing, input_dims, device=device)
             batch_shape = torch.Size([output_dims])
 
-        variational_distribution = CholeskyVariationalDistribution(
+        variational_distribution = SDEVariationalDistribution(
             num_inducing_points=num_inducing,
             device=device,
             batch_shape=batch_shape,
