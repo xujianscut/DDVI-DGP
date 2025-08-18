@@ -1,5 +1,5 @@
 
-# DDVI-DGP: Denoising Diffusion Variational Inference for Deep Gaussian Processes
+# DDVI-DGP: Sparse Inducing Points in Deep Gaussian Processes: Enhancing Modeling with Denoising Diffusion Variational Inference
 
 This repository provides a prototype implementation of  
 Denoising Diffusion Variational Inference (DDVI) for Deep Gaussian Processes (DGPs),  
