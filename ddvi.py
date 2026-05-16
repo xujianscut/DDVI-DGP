@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-fbvi_native.py — Flow-based Variational Inference for Deep GPs, from scratch.
+ddvi.py — Flow-based Variational Inference for Deep GPs, from scratch.
 
 No gpytorch. q(U^(l)) is either:
 - variant='dsvi': free Gaussian N(m^(l), L^(l) L^(l)T) (Salimbeni-Deisenroth DSVI baseline)

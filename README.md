@@ -46,7 +46,7 @@ did not faithfully implement it.
 network genuinely participates in the ELBO**, with the reverse-time SDE used as
 the sampling mechanism throughout training and evaluation.
 
-The main script (`fbvi_native.py`) also includes several other variational
+The main script (`ddvi.py`) also includes several other variational
 families (mean-field DSVI, flow-based VI, IPVI, Doob-bridge variants) that share
 the same DGP backbone for clean methodological comparison; the score-based
 variant is selected with `--variant score`.
@@ -59,11 +59,11 @@ variant is selected with `--variant score`.
 pip install torch pandas numpy tqdm
 ```
 
-`fbvi_native.py` is a single-file script. The DDVI variant is `--variant score`:
+`ddvi.py` is a single-file script. The DDVI variant is `--variant score`:
 
 ```bash
 # DDVI (score net + VP DSM) on UCI energy
-python fbvi_native.py --variant score \
+python ddvi.py --variant score \
     --dataset energy --data_path data/energy.csv \
     --epochs 100 --num_inducing 128 --batch_size 256 \
     --dsm_weight 1.0
@@ -75,7 +75,7 @@ Available datasets (in `data/`): `yacht`, `boston`, `energy`, `qsar`, `concrete`
 A mean-field DSVI baseline for comparison:
 
 ```bash
-python fbvi_native.py --variant dsvi \
+python ddvi.py --variant dsvi \
     --dataset energy --data_path data/energy.csv \
     --epochs 100 --num_inducing 128 --batch_size 256
 ```
@@ -97,7 +97,7 @@ python fbvi_native.py --variant dsvi \
 | `--mc_samples` | 2 | MC samples for ELBO data term |
 | `--eval_samples` | 32 | MC samples at evaluation |
 
-Run `python fbvi_native.py --help` for the full list (also includes flags for the
+Run `python ddvi.py --help` for the full list (also includes flags for the
 other variants packaged in the same script).
 
 ---
@@ -105,7 +105,7 @@ other variants packaged in the same script).
 ## File map
 
 ```
-fbvi_native.py        # main entry point — model + DDVI training + evaluation
+ddvi.py        # main entry point — model + DDVI training + evaluation
 aggregate_table.py    # builds RMSE / NLL summary tables across runs
 data/                 # bundled UCI regression datasets
 ```
