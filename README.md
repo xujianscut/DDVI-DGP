@@ -1,47 +1,55 @@
-# DDVI-DGP / FBVI-DGP
+# DDVI-DGP
 
-A unified, gpytorch-free implementation of diffusion- and flow-based variational
-inference for **Deep Gaussian Processes (DGPs)**, covering the following methodological
-spectrum in a single codebase:
+A clean, gpytorch-free implementation of **Denoising Diffusion Variational
+Inference (DDVI)** for Deep Gaussian Processes (DGPs), as introduced in our paper:
 
-| Variant | Family | Posterior $q(\mathbf U)$ | Training |
-|---|---|---|---|
-| `dsvi` | mean-field | $\mathcal N(m, LL^\top)$ free | Closed-form KL + ELBO |
-| `fbvi` | **flow (velocity)** | ODE $dU_t = v_\phi(U_t,t)\,dt$ from prior | ELBO backprop through ODE |
-| `dbvi` | flow + SDE noise | $dU_t = v_\phi\,dt + \sigma\,dW_t$ | ELBO backprop through SDE |
-| `fbvi-bridge` | **flow + Doob bridge** | Bridge-anchored start + conditional $v_\phi(U_t,t,\text{ctx})$ | ELBO backprop through bridge ODE |
-| `score` | **score-based (DDVI)** | Reverse VP SDE with $s_\phi(U,t)$ | ELBO + denoising score matching |
-| `dbvi-s` | **score + Doob bridge** | Reverse Doob-bridged SDE with $s_\phi(U,t,\text{ctx})$ | ELBO + conditional DSM |
-| `ipvi` | **GAN-style implicit** | $U = g_\phi(\epsilon)$, $\epsilon\sim\mathcal N(0,I)$ | Best-response dynamics (Gen vs Disc) |
-
-The implementation is **from scratch (no gpytorch dependency)**, allowing each
-variational family to plug into the same DGP backbone (sparse GP layers, RBF–ARD
-kernel, doubly-stochastic forward pass) for apples-to-apples comparison.
+> Jian Xu, Delu Zeng, John Paisley.
+> *Sparse Inducing Points in Deep Gaussian Processes: Enhancing Modeling with Denoising Diffusion Variational Inference.*
+> ICML 2024 (Oral). [arXiv:2407.17033](https://arxiv.org/abs/2407.17033)
 
 ---
 
-## Relation to prior work
+## Method overview
 
-This codebase grew out of three of our papers studying inducing-variable VI for DGPs:
+For DGP inference with inducing variables $\mathbf U=\{U^{(\ell)}\}_{\ell=1}^L$,
+classical mean-field VI (DSVI) approximates the posterior by a factorised Gaussian
+$q(\mathbf U)=\prod_\ell \mathcal N(m_\ell, S_\ell)$. This assumption is restrictive — the
+true posterior over inducing variables is generally **non-Gaussian** in deep models.
 
-* **DDVI** — Xu, Zeng, Paisley.
-  *Sparse Inducing Points in Deep Gaussian Processes: Enhancing Modeling with Denoising Diffusion Variational Inference.* ICML 2024. [arXiv:2407.17033](https://arxiv.org/abs/2407.17033)
+**DDVI** instead defines the variational posterior implicitly as the terminal of a
+**reverse-time stochastic differential equation (SDE)**:
 
-* **DBVI** — Xu, Zeng, Zhao, Paisley.
-  *Diffusion Bridge Variational Inference for Deep Gaussian Processes.* ICLR 2026. [arXiv:2509.19078](https://arxiv.org/abs/2509.19078)
+1. A fixed forward noising process (variance-preserving SDE) maps $q(\mathbf U)$ to a
+   simple Gaussian $p_{\text{fix}}$ at $t=T$:
+   $$dU_t = -\tfrac{1}{2}\beta(t)U_t\,dt + \sqrt{\beta(t)}\,dW_t,\qquad U_0\sim q,\ U_T\sim p_{\text{fix}}.$$
+2. The reverse-time SDE parameterised by a learned score network $s_\phi(U_t,t)\approx\nabla\log p_t(U)$ recovers a sample of $q$ from a noise draw at $t=T$.
+3. Training combines the **ELBO data term** (via the reverse-SDE sample) with a
+   **denoising score-matching (DSM) regularizer**:
+   $$\mathcal L_{\text{DSM}}=\mathbb E_{t,U_0,\varepsilon}\Big\|s_\phi(U_t,t)+\tfrac{\varepsilon}{\sigma_t}\Big\|^2,\quad U_t=\alpha_t U_0+\sigma_t\varepsilon.$$
 
-* **FBVI** (new, this repo's focus) — flow-matching counterpart of the above. We implement
-  velocity-field VI with optional Doob-bridge structure, providing an apples-to-apples
-  comparison between score-based and flow-based DGP-VI in the same framework.
+This sidesteps the mean-field restriction by representing $q(\mathbf U)$ as the
+pushforward of noise through a score-based generative process.
 
-The original prototype implementations of DDVI/DBVI used `gpytorch` and grafted
-the SDE/score machinery onto the standard `VariationalStrategy`. We found that
-in those reference implementations the SDE/score branch ended up **decoupled
-from the ELBO** (because gpytorch's `initialize_variational_distribution`
-overwrites the SDE-derived mean and the auxiliary `sde_loss` only trains a
-side-network with no gradient path to $q(\mathbf U)$). This repository contains
-a clean from-scratch implementation in which all variational families
-**genuinely participate in the ELBO**.
+---
+
+## Implementation notes
+
+The original prototype distributed alongside the paper used `gpytorch` and grafted
+the diffusion machinery onto the standard `VariationalStrategy`. During careful
+debugging we found that the gpytorch's
+`initialize_variational_distribution` overwrites the diffusion-derived initial
+mean at first forward, which left the score network as an **isolated side-network**
+with no gradient path to the ELBO. The DDVI claim is sound, but that early code
+did not faithfully implement it.
+
+**This repository contains a clean from-scratch implementation in which the score
+network genuinely participates in the ELBO**, with the reverse-time SDE used as
+the sampling mechanism throughout training and evaluation.
+
+The main script (`fbvi_native.py`) also includes several other variational
+families (mean-field DSVI, flow-based VI, IPVI, Doob-bridge variants) that share
+the same DGP backbone for clean methodological comparison; the score-based
+variant is selected with `--variant score`.
 
 ---
 
@@ -51,84 +59,69 @@ a clean from-scratch implementation in which all variational families
 pip install torch pandas numpy tqdm
 ```
 
-`fbvi_native.py` is a single-file script. Run it with any `--variant` and any
-of the bundled UCI regression datasets:
+`fbvi_native.py` is a single-file script. The DDVI variant is `--variant score`:
 
 ```bash
-# Velocity-field flow-matching VI (FBVI)
-python fbvi_native.py --variant fbvi --dataset energy --data_path data/energy.csv \
-    --epochs 100 --num_inducing 128 --batch_size 256
-
-# Doob-bridge score VI (proper DBVI)
-python fbvi_native.py --variant dbvi-s --dataset energy --data_path data/energy.csv \
+# DDVI (score net + VP DSM) on UCI energy
+python fbvi_native.py --variant score \
+    --dataset energy --data_path data/energy.csv \
     --epochs 100 --num_inducing 128 --batch_size 256 \
-    --dsm_weight 1.0 --doob_lambda 1.0 --doob_g 1.0 --doob_sigma0 1.0
-
-# Plain DDVI (unconditional VP DSM, score-based)
-python fbvi_native.py --variant score --dataset energy --data_path data/energy.csv \
-    --epochs 100 --num_inducing 128 --batch_size 256 --dsm_weight 1.0
-
-# GAN-style IPVI (Yu et al. 2019)
-python fbvi_native.py --variant ipvi --dataset energy --data_path data/energy.csv \
-    --epochs 100 --num_inducing 128 --batch_size 256
-
-# Mean-field DSVI baseline
-python fbvi_native.py --variant dsvi --dataset energy --data_path data/energy.csv \
-    --epochs 100 --num_inducing 128 --batch_size 256
-
-# Few-step inference at end of training
-python fbvi_native.py --variant fbvi --dataset energy --data_path data/energy.csv \
-    --epochs 100 --eval_steps_list 1,2,4,10,20
+    --dsm_weight 1.0
 ```
 
 Available datasets (in `data/`): `yacht`, `boston`, `energy`, `qsar`, `concrete`,
-`power`, `protein`. All are standard UCI regression benchmarks.
+`power`, `protein` (standard UCI regression benchmarks).
+
+A mean-field DSVI baseline for comparison:
+
+```bash
+python fbvi_native.py --variant dsvi \
+    --dataset energy --data_path data/energy.csv \
+    --epochs 100 --num_inducing 128 --batch_size 256
+```
 
 ---
 
-## Key CLI arguments
+## Key DDVI-specific arguments
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--variant {fbvi,dsvi,dbvi,fbvi-bridge,score,dbvi-s,ipvi}` | `fbvi` | Which variational family |
+| `--variant score` | — | Select DDVI |
+| `--dsm_weight` | 0.0 | Coefficient on DSM auxiliary loss; **set to ≥1.0 for proper DDVI training** |
+| `--dsm_samples` | 1 | Number of $(t, \varepsilon)$ MC samples per layer per minibatch |
+| `--beta_min`, `--beta_max` | 0.1, 20.0 | VP noise schedule $\beta(t)=\beta_{\min}+t(\beta_{\max}-\beta_{\min})$ |
+| `--flow_steps` | 10 | Steps for reverse-SDE integration |
+| `--flow_hidden` | 128 | Hidden width of the score network |
 | `--num_inducing` | 128 | $M$ per layer |
 | `--layers` | 2 | DGP depth |
-| `--flow_steps` | 10 | ODE/SDE integration steps |
-| `--flow_hidden` | 128 | Hidden width of velocity / score network |
-| `--mc_samples` | 2 | Monte-Carlo samples for ELBO data term |
+| `--mc_samples` | 2 | MC samples for ELBO data term |
 | `--eval_samples` | 32 | MC samples at evaluation |
-| `--dsm_weight` | 0.0 | Coefficient on DSM auxiliary loss (`score`/`dbvi-s`) |
-| `--sde_sigma` | 0.1 | Noise scale for the `dbvi` (velocity + SDE) variant |
-| `--doob_lambda`, `--doob_g`, `--doob_sigma0` | 1, 1, 1 | Affine forward-SDE schedule for Doob-bridge variants |
-| `--shortcut_weight`, `--shortcut_warmup_epochs` | 0.0, 20 | Frans-2024 shortcut self-consistency loss for accelerated few-step inference |
-| `--eval_steps_list` | "" | Comma-separated step counts for the few-step inference sweep after training |
 
-Run `python fbvi_native.py --help` for the full list.
+Run `python fbvi_native.py --help` for the full list (also includes flags for the
+other variants packaged in the same script).
 
 ---
 
 ## File map
 
 ```
-fbvi_native.py        # main entry point — model + training + evaluation
+fbvi_native.py        # main entry point — model + DDVI training + evaluation
 aggregate_table.py    # builds RMSE / NLL summary tables across runs
 data/                 # bundled UCI regression datasets
 ```
 
-The main file is organized as:
+The DDVI-specific code lives in:
 
-* `SparseGPLayer` — single sparse GP layer (RBF–ARD kernel, learnable $Z$, residual mean)
-* `VelocityField` / `ScoreField` / `Generator` / `Discriminator` — per-layer NN modules
-* `Amortizer` + `_precompute_doob` + `ConditionalScoreField` / `ConditionalVelocityField` — Doob-bridge plumbing
-* `FlowDGP` — the unified model; dispatches on `--variant`
-* `eval_metrics` — MC-RMSE / MC-NLL
-* `main()` — data loading, training loop (with a separate BRD branch for `ipvi`)
+* `SparseGPLayer` — sparse GP layer with RBF–ARD kernel
+* `ScoreField` — the score network $s_\phi(U_t, t)$
+* `_alpha_sigma` — VP-noising marginal coefficients
+* `FlowDGP.sample_U` (the `score` branch) — reverse-SDE sampler
+* `FlowDGP.dsm_loss` — DSM regulariser
+* `main()` — full DDVI training loop
 
 ---
 
 ## Citation
-
-If you build on this codebase, please cite the underlying papers:
 
 ```bibtex
 @inproceedings{xu2024sparse,
@@ -136,23 +129,5 @@ If you build on this codebase, please cite the underlying papers:
   author={Xu, Jian and Zeng, Delu and Paisley, John},
   booktitle={International Conference on Machine Learning},
   year={2024},
-}
-
-@inproceedings{xu2026diffusion,
-  title={Diffusion Bridge Variational Inference for Deep Gaussian Processes},
-  author={Xu, Jian and Zeng, Delu and Zhao, Qibin and Paisley, John},
-  booktitle={International Conference on Learning Representations},
-  year={2026},
-}
-```
-
-For the IPVI baseline:
-
-```bibtex
-@inproceedings{yu2019implicit,
-  title={Implicit Posterior Variational Inference for Deep Gaussian Processes},
-  author={Yu, Haibin and Chen, Yizhou and Dai, Zhongxiang and Low, Bryan Kian Hsiang and Jaillet, Patrick},
-  booktitle={Advances in Neural Information Processing Systems},
-  year={2019}
 }
 ```
