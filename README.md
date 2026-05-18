@@ -1,6 +1,7 @@
 # Denoising Diffusion Variational Inference for Deep Gaussian Processes (DDVI-DGP)
 
-[![ICML 2024](https://img.shields.io/badge/ICML-2024%20Oral-blue)](https://arxiv.org/abs/2407.17033)
+[![ICML 2024](https://img.shields.io/badge/ICML-2024-blue)](https://proceedings.mlr.press/v235/xu24af.html)
+[![PMLR](https://img.shields.io/badge/PMLR-v235-orange)](https://proceedings.mlr.press/v235/xu24af.html)
 [![arXiv](https://img.shields.io/badge/arXiv-2407.17033-b31b1b)](https://arxiv.org/abs/2407.17033)
 
 Official implementation of the **ICML 2024 (Oral)** paper
@@ -123,13 +124,19 @@ Run `python ddvi.py --help` for the full list.
 ## Citation
 
 ```bibtex
-@inproceedings{xu2024sparse,
-  title     = {Sparse Inducing Points in Deep Gaussian Processes: Enhancing Modeling with Denoising Diffusion Variational Inference},
+@InProceedings{pmlr-v235-xu24af,
+  title     = {Sparse Inducing Points in Deep {G}aussian Processes: Enhancing Modeling with Denoising Diffusion Variational Inference},
   author    = {Xu, Jian and Zeng, Delu and Paisley, John},
   booktitle = {Proceedings of the 41st International Conference on Machine Learning},
   pages     = {55490--55500},
   year      = {2024},
-  publisher = {PMLR}
+  editor    = {Salakhutdinov, Ruslan and Kolter, Zico and Heller, Katherine and Weller, Adrian and Oliver, Nuria and Scarlett, Jonathan and Berkenkamp, Felix},
+  volume    = {235},
+  series    = {Proceedings of Machine Learning Research},
+  month     = {21--27 Jul},
+  publisher = {PMLR},
+  pdf       = {https://raw.githubusercontent.com/mlresearch/v235/main/assets/xu24af/xu24af.pdf},
+  url       = {https://proceedings.mlr.press/v235/xu24af.html}
 }
 ```
 
