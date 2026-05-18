@@ -34,14 +34,6 @@ pushforward of noise through a score-based generative process.
 
 ## Implementation notes
 
-The original prototype distributed alongside the paper used `gpytorch` and grafted
-the diffusion machinery onto the standard `VariationalStrategy`. During careful
-debugging we found that the gpytorch's
-`initialize_variational_distribution` overwrites the diffusion-derived initial
-mean at first forward, which left the score network as an **isolated side-network**
-with no gradient path to the ELBO. The DDVI claim is sound, but that early code
-did not faithfully implement it.
-
 **This repository contains a clean from-scratch implementation in which the score
 network genuinely participates in the ELBO**, with the reverse-time SDE used as
 the sampling mechanism throughout training and evaluation.
