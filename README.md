@@ -43,8 +43,21 @@ DDVI defines $q(\mathbf U)$ implicitly via:
 .
 ├── ddvi.py              Main entry — model + DDVI training + evaluation
 ├── aggregate_table.py   RMSE / NLL summary tables across runs
-└── data/                Bundled UCI regression datasets
+├── data/                Bundled UCI regression datasets
+└── bnn/                 DDVI for Bayesian neural networks (see bnn/README.md)
 ```
+
+The `bnn/` directory covers the Bayesian neural network half of the journal
+version, together with the baselines added during review:
+
+| File | Purpose |
+|---|---|
+| `bnn/ddvi_cifar.py` | DDVI + inducing weights on CIFAR-10/100 (Wide ResNet) |
+| `bnn/bnn_ddvi.py` | toy 1-D regression, wheel bandit, FFG/FCG/ensemble baselines |
+| `bnn/ddvi_general.py` | DDVI for a general latent-variable model — full-weight BNN posterior, **no inducing structure** |
+| `bnn/solve_gp.py` | DSVI / SOLVE-GP / DDVI on UCI, compute-matched, $L=1\ldots3$ |
+| `bnn/conv_gp.py` | convolutional-kernel GP classification, no neural feature extractor |
+| `bnn/noisy_adam.py` | noisy Adam (Zhang et al., 2018) baseline |
 
 DDVI-specific components inside `ddvi.py`:
 
